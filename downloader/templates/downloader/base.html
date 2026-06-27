@@ -1,0 +1,23 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Video Downloader{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'downloader/style.css' %}">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>🎬 Video Downloader</h1>
+      <p class="sub">Paste a video URL, pick a quality, download. Powered by yt-dlp.</p>
+    </header>
+    {% block content %}{% endblock %}
+    <footer>
+      <p>For personal, offline viewing only. Respect content creators' rights
+         and each site's Terms of Service. Don't redistribute copyrighted content.</p>
+    </footer>
+  </main>
+</body>
+</html>

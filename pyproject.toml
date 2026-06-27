@@ -1,0 +1,17 @@
+[project]
+name = "django-video-downloader"
+version = "0.1.0"
+description = "A minimal Django web app to download videos via yt-dlp, deployable on Vercel."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.0,<5.2",
+    "yt-dlp>=2024.0.0",
+    "whitenoise>=6.6.0",
+]
+
+[tool.uv]
+# Local development is managed with uv. Vercel's serverless Python builder,
+# however, installs from requirements.txt — so keep that file in sync with:
+#   uv export --no-hashes --no-dev -o requirements.txt
+package = false

@@ -1,0 +1,42 @@
+{% extends "downloader/base.html" %}
+
+{% block title %}{{ title }} — Video Downloader{% endblock %}
+
+{% block content %}
+  <a class="back" href="{% url 'index' %}">← Download another</a>
+
+  <div class="meta card">
+    {% if thumbnail %}<img class="thumb" src="{{ thumbnail }}" alt="">{% endif %}
+    <div>
+      <h2>{{ title }}</h2>
+      {% if uploader %}<p class="muted">{{ uploader }}</p>{% endif %}
+      {% if duration %}<p class="muted">Duration: {{ duration }}</p>{% endif %}
+    </div>
+  </div>
+
+  {% if formats %}
+  <table class="formats">
+    <thead>
+      <tr><th>Type</th><th>Resolution</th><th>Format</th><th>Note</th><th>Size</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in formats %}
+      <tr>
+        <td>{{ f.kind }}</td>
+        <td>{{ f.resolution }}{% if f.fps %} @{{ f.fps }}fps{% endif %}</td>
+        <td>{{ f.ext|upper }}</td>
+        <td class="muted">{{ f.note }}</td>
+        <td>{{ f.size }}</td>
+        <td>
+          <a class="dl" href="{% url 'download' %}?url={{ url|urlencode }}&format_id={{ f.format_id|urlencode }}">
+            Download
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="alert">No downloadable formats were found for this URL.</div>
+  {% endif %}
+{% endblock %}
