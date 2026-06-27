@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Video downloader">
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#6c8cff"/>
+  <rect x="114" y="64" width="28" height="86" fill="#ffffff"/>
+  <polygon points="86,138 170,138 128,188" fill="#ffffff"/>
+  <rect x="76" y="198" width="104" height="18" rx="9" fill="#ffffff"/>
+</svg>
