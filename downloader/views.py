@@ -112,6 +112,10 @@ def _build_formats(info):
                 "ext": fmt.get("ext", ""),
                 "kind": kind,
                 "resolution": resolution or "—",
+                # Stable identifier used at download time (format ids can drift
+                # between requests for HLS, where they encode the bitrate).
+                "height": height or "",
+                "video_only": has_video and not has_audio,
                 "fps": fmt.get("fps") or "",
                 "note": fmt.get("format_note", ""),
                 "size": _human_size(size),
@@ -160,20 +164,21 @@ def formats(request):
     return render(request, "downloader/formats.html", context)
 
 
-def _format_selector(info, format_id):
-    """yt-dlp format string for the chosen format.
+def _format_selector(format_id, height, video_only):
+    """Build a resilient yt-dlp format selector.
 
-    If the chosen format is video-only, pair it with the best audio (yt-dlp
-    merges them with ffmpeg). Otherwise download the format as-is.
+    Prefer the exact format id, but fall back to "best at this resolution" —
+    HLS format ids encode the bitrate and can drift slightly between requests,
+    so an exact-id-only match fails intermittently. Video-only formats are
+    paired with the best audio (yt-dlp merges them with ffmpeg).
     """
-    for fmt in info.get("formats", []) or []:
-        if str(fmt.get("format_id")) == format_id:
-            has_video = fmt.get("vcodec") not in (None, "none")
-            has_audio = fmt.get("acodec") not in (None, "none")
-            if has_video and not has_audio:
-                return f"{format_id}+bestaudio/{format_id}"
-            return format_id
-    return None
+    if height.isdigit():
+        h = int(height)
+        if video_only:
+            return f"{format_id}+ba/bv*[height<={h}]+ba/b[height<={h}]/b"
+        return f"{format_id}/b[height<={h}]/b[height<={h}]/b"
+    # No height (e.g. audio-only) — fall back to best audio, then best overall.
+    return f"{format_id}/ba/b"
 
 
 @require_GET
@@ -189,20 +194,13 @@ def download(request):
 
     url = (request.GET.get("url") or "").strip()
     format_id = (request.GET.get("format_id") or "").strip()
+    height = (request.GET.get("height") or "").strip()
+    video_only = request.GET.get("video_only") == "1"
     if not _URL_RE.match(url) or not format_id:
         return HttpResponseBadRequest("Missing or invalid url/format_id.")
 
-    try:
-        info = _extract_info(url)
-    except Exception as exc:
-        return HttpResponseBadRequest(f"Extraction failed: {exc}")
-
-    selector = _format_selector(info, format_id)
-    if selector is None:
-        return HttpResponseBadRequest("That format is no longer available.")
-
+    selector = _format_selector(format_id, height, video_only)
     tmpdir = tempfile.mkdtemp(prefix="ytdl-")
-    title = re.sub(r"[^\w\-. ]", "_", info.get("title", "video")).strip() or "video"
 
     ydl_opts = {
         "quiet": True,
@@ -235,9 +233,9 @@ def download(request):
         shutil.rmtree(tmpdir, ignore_errors=True)
         return HttpResponseBadRequest("Download produced no file.")
 
+    # yt-dlp named the file after the video title; use that as the download name.
     path = max(files, key=os.path.getsize)
-    ext = os.path.splitext(path)[1].lstrip(".") or "mp4"
-    filename = f"{title}.{ext}"
+    filename = os.path.basename(path)
     return _stream_file(path, tmpdir, filename)
 
 

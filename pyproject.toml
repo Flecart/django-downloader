@@ -1,6 +1,6 @@
 [project]
 name = "django-video-downloader"
-version = "0.6.0"
+version = "0.7.0"
 description = "A minimal Django web app to download videos via yt-dlp, deployable on Vercel."
 readme = "README.md"
 requires-python = ">=3.12"

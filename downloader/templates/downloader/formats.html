@@ -28,7 +28,7 @@
         <td class="muted">{{ f.note }}</td>
         <td>{{ f.size }}</td>
         <td>
-          <a class="dl" href="{% url 'download' %}?url={{ url|urlencode }}&format_id={{ f.format_id|urlencode }}">
+          <a class="dl" href="{% url 'download' %}?url={{ url|urlencode }}&format_id={{ f.format_id|urlencode }}&height={{ f.height|urlencode }}&video_only={% if f.video_only %}1{% else %}0{% endif %}">
             Download
           </a>
         </td>
