@@ -9,16 +9,18 @@ Paste a URL → pick a format/quality → download.
 
 ## How it works
 
-The app uses yt-dlp purely as a **metadata extractor**. It lists the available
-formats and, when a format exposes a direct CDN URL, redirects your browser to
-download straight from the source. This keeps it fast and avoids proxying large
-files through the server.
+You paste a URL, the app lists the available formats, and on download yt-dlp
+fetches the media **server-side** — stitching the fragments of an HLS/DASH
+stream (how Dailymotion, Vimeo, etc. serve video) into a single playable file
+in a temp dir, which is then streamed back to your browser as an attachment and
+cleaned up. A static `ffmpeg` (via `imageio-ffmpeg`) is bundled so muxing works
+on hosts without a system ffmpeg.
 
-> **Serverless caveat:** Vercel functions have a max duration (60s here) and no
-> persistent disk. Direct-URL formats (progressive MP4) download fine because
-> the browser fetches from the CDN. Fragmented HLS/DASH streams that require
-> server-side muxing (and ffmpeg) will not work reliably on Vercel — for those,
-> run this app on a normal host (see *Local / self-hosted* below).
+> **Serverless caveat:** This pulls the whole file through the function, which
+> on Vercel has a short timeout and ephemeral `/tmp`. Short clips download fine;
+> long or large videos can exceed the function timeout. For reliable downloads
+> of big videos, self-host (see *Local development* below) where there is no
+> timeout limit.
 
 ## Local development
 

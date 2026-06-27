@@ -1,30 +1,33 @@
 """
 Views for the video downloader.
 
-Design note for serverless (Vercel):
-    Proxying a full video file through a serverless function is a bad idea —
-    functions have short timeouts and limited memory/bandwidth. So the primary
-    strategy here is to use yt-dlp purely as a *metadata extractor*: we resolve
-    the list of available formats and their direct CDN URLs, then hand those
-    URLs to the user's browser, which downloads straight from the source.
+How downloading works:
+    Most sites (Dailymotion, Vimeo, …) serve video as fragmented HLS/DASH —
+    there is no single progressive file to hand to the browser. A naive
+    "redirect to the media URL" only gives you the tiny .m3u8 *manifest*, not
+    the video. So we let yt-dlp do the real work: it downloads and stitches the
+    fragments into a single playable file in a temp dir, and we stream that file
+    back to the browser as an attachment, cleaning up afterwards.
 
-    For formats that do not expose a single direct URL (e.g. fragmented
-    HLS/DASH manifests), a best-effort server-side streaming fallback is
-    offered, with the caveat that it can hit the function timeout for large
-    files. Run on a host without that limit for reliable large downloads.
+Serverless (Vercel) caveat:
+    This pulls the whole file through the function, which has a short timeout
+    and ephemeral /tmp. Short clips work; long/large videos can exceed the
+    timeout. For reliable downloads of big videos, self-host (no timeout limit).
 """
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import tempfile
 
 from django.conf import settings
 from django.http import (
-    HttpResponse,
     HttpResponseBadRequest,
     JsonResponse,
     StreamingHttpResponse,
 )
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from .version import __version__
@@ -33,6 +36,21 @@ try:
     import yt_dlp
 except ImportError:  # pragma: no cover - yt_dlp is a hard dependency
     yt_dlp = None
+
+
+def _ffmpeg_location():
+    """Path to a usable ffmpeg, or None.
+
+    Prefer a pip-installed static binary (imageio-ffmpeg) so muxing works on
+    hosts without a system ffmpeg, such as Vercel. Returning None is fine for
+    combined HLS streams, which yt-dlp can stitch natively without ffmpeg.
+    """
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return shutil.which("ffmpeg")
 
 
 # Accept only http(s) URLs to avoid yt-dlp touching local files / odd schemes.
@@ -97,9 +115,6 @@ def _build_formats(info):
                 "fps": fmt.get("fps") or "",
                 "note": fmt.get("format_note", ""),
                 "size": _human_size(size),
-                # A direct, fetchable URL (None for fragmented streams).
-                "direct_url": fmt.get("url") if fmt.get("protocol") in
-                ("https", "http") else None,
                 "tbr": fmt.get("tbr") or 0,
             }
         )
@@ -145,15 +160,33 @@ def formats(request):
     return render(request, "downloader/formats.html", context)
 
 
+def _format_selector(info, format_id):
+    """yt-dlp format string for the chosen format.
+
+    If the chosen format is video-only, pair it with the best audio (yt-dlp
+    merges them with ffmpeg). Otherwise download the format as-is.
+    """
+    for fmt in info.get("formats", []) or []:
+        if str(fmt.get("format_id")) == format_id:
+            has_video = fmt.get("vcodec") not in (None, "none")
+            has_audio = fmt.get("acodec") not in (None, "none")
+            if has_video and not has_audio:
+                return f"{format_id}+bestaudio/{format_id}"
+            return format_id
+    return None
+
+
 @require_GET
 def download(request):
-    """
-    Resolve the chosen format for *url* and deliver the file.
+    """Download the chosen format server-side and stream the file to the user.
 
-    If the format exposes a direct CDN URL we simply redirect the browser to
-    it (fast, no server bandwidth). Otherwise we fall back to streaming the
-    bytes through the server, which may time out on serverless for big files.
+    yt-dlp fetches and stitches the (usually fragmented HLS/DASH) media into a
+    single playable file in a temp dir; we stream that back as an attachment
+    and delete the temp dir once streaming finishes.
     """
+    if yt_dlp is None:
+        return HttpResponseBadRequest("yt-dlp is not installed on the server.")
+
     url = (request.GET.get("url") or "").strip()
     format_id = (request.GET.get("format_id") or "").strip()
     if not _URL_RE.match(url) or not format_id:
@@ -164,49 +197,69 @@ def download(request):
     except Exception as exc:
         return HttpResponseBadRequest(f"Extraction failed: {exc}")
 
-    chosen = None
-    for fmt in info.get("formats", []) or []:
-        if str(fmt.get("format_id")) == format_id:
-            chosen = fmt
-            break
-    if chosen is None:
+    selector = _format_selector(info, format_id)
+    if selector is None:
         return HttpResponseBadRequest("That format is no longer available.")
 
+    tmpdir = tempfile.mkdtemp(prefix="ytdl-")
     title = re.sub(r"[^\w\-. ]", "_", info.get("title", "video")).strip() or "video"
-    ext = chosen.get("ext", "mp4")
-    filename = f"{title}.{ext}"
 
-    direct_url = chosen.get("url")
-    protocol = chosen.get("protocol", "")
-    if direct_url and protocol in ("https", "http"):
-        # Hand off straight to the CDN — best for serverless.
-        return redirect(direct_url)
-
-    # Fragmented stream (HLS/DASH); attempt a server-side proxy stream.
-    return _stream_through_server(direct_url or url, filename)
-
-
-def _stream_through_server(media_url, filename):
-    import urllib.request
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+        "noplaylist": True,
+        "format": selector,
+        "outtmpl": os.path.join(tmpdir, "%(title)s.%(ext)s"),
+        "restrictfilenames": True,
+        "merge_output_format": "mp4",
+    }
+    ffmpeg = _ffmpeg_location()
+    if ffmpeg:
+        ydl_opts["ffmpeg_location"] = ffmpeg
 
     try:
-        upstream = urllib.request.urlopen(media_url, timeout=settings.YTDLP_TIMEOUT)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
     except Exception as exc:
-        return HttpResponseBadRequest(
-            "This format has no direct download URL and could not be proxied "
-            f"({exc}). Try a different (progressive) format."
-        )
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        message = str(exc).splitlines()[-1] if str(exc) else "Download failed."
+        return HttpResponseBadRequest(f"Download failed: {message}")
+
+    files = [
+        os.path.join(tmpdir, f)
+        for f in os.listdir(tmpdir)
+        if os.path.isfile(os.path.join(tmpdir, f))
+    ]
+    if not files:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        return HttpResponseBadRequest("Download produced no file.")
+
+    path = max(files, key=os.path.getsize)
+    ext = os.path.splitext(path)[1].lstrip(".") or "mp4"
+    filename = f"{title}.{ext}"
+    return _stream_file(path, tmpdir, filename)
+
+
+def _stream_file(path, tmpdir, filename):
+    """Stream *path* as a download, removing *tmpdir* when finished."""
+    size = os.path.getsize(path)
 
     def chunks():
-        while True:
-            data = upstream.read(64 * 1024)
-            if not data:
-                break
-            yield data
+        try:
+            with open(path, "rb") as fh:
+                while True:
+                    data = fh.read(256 * 1024)
+                    if not data:
+                        break
+                    yield data
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     response = StreamingHttpResponse(
         chunks(), content_type="application/octet-stream"
     )
+    response["Content-Length"] = str(size)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
 

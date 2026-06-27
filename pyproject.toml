@@ -1,6 +1,6 @@
 [project]
 name = "django-video-downloader"
-version = "0.5.0"
+version = "0.6.0"
 description = "A minimal Django web app to download videos via yt-dlp, deployable on Vercel."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -11,6 +11,10 @@ dependencies = [
     # Required for yt-dlp browser impersonation (Dailymotion and other sites
     # now demand a real browser TLS fingerprint to avoid being blocked).
     "curl_cffi>=0.7",
+    # Bundles a static ffmpeg binary so yt-dlp can mux/merge streams on hosts
+    # without a system ffmpeg (e.g. Vercel). Not needed for combined HLS, which
+    # yt-dlp stitches natively, but required for video-only + audio merges.
+    "imageio-ffmpeg>=0.5",
 ]
 
 [tool.uv]

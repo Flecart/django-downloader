@@ -10,6 +10,8 @@ curl-cffi==0.15.0
     # via django-video-downloader
 django==5.1.15
     # via django-video-downloader
+imageio-ffmpeg==0.6.0
+    # via django-video-downloader
 markdown-it-py==4.2.0
     # via rich
 mdurl==0.1.2

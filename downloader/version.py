@@ -3,4 +3,4 @@
 Bump this on every deploy so you can confirm the live site is serving the
 latest push: it shows in the page footer and at /healthz.
 """
-__version__ = "0.5.0"
+__version__ = "0.6.0"
