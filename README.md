@@ -44,9 +44,10 @@ Open http://127.0.0.1:8000.
 
 1. Push this repo to GitHub.
 2. Import it in the Vercel dashboard (or run `vercel`).
-3. Set environment variables in the Vercel project settings:
-   - `DJANGO_SECRET_KEY` — a long random string.
-   - `DJANGO_DEBUG` — leave unset / `False` in production.
+3. (Optional) environment variables — none are required. The app is a public,
+   stateless tool with no logins or sessions, so it runs with zero config. You
+   may optionally set `DJANGO_SECRET_KEY` (any random string) to override the
+   built-in default, but it does not affect who can access the site.
 4. Deploy. Vercel auto-detects the Python function at `api/index.py`, installs
    `requirements.txt`, and routes all traffic to the WSGI app (see
    `vercel.json`).

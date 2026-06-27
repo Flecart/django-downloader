@@ -2,8 +2,7 @@
 
 {% block content %}
   {% if error %}<div class="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="{% url 'formats' %}" class="card">
-    {% csrf_token %}
+  <form method="get" action="{% url 'formats' %}" class="card">
     <label for="url">Video URL</label>
     <input type="url" id="url" name="url" required
            placeholder="https://www.dailymotion.com/video/XXXXX"

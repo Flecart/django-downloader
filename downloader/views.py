@@ -25,7 +25,7 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 
 try:
     import yt_dlp
@@ -112,9 +112,9 @@ def index(request):
     return render(request, "downloader/index.html")
 
 
-@require_POST
+@require_GET
 def formats(request):
-    url = (request.POST.get("url") or "").strip()
+    url = (request.GET.get("url") or "").strip()
     if not _URL_RE.match(url):
         return render(
             request,
