@@ -72,3 +72,4 @@ button:hover, .dl:hover { filter: brightness(1.1); }
 }
 .formats th { color: var(--muted); font-weight: 600; }
 footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; }
+.version { margin-top: .5rem; opacity: .6; font-variant-numeric: tabular-nums; }

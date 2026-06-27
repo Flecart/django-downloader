@@ -27,6 +27,8 @@ from django.http import (
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
+from .version import __version__
+
 try:
     import yt_dlp
 except ImportError:  # pragma: no cover - yt_dlp is a hard dependency
@@ -217,4 +219,6 @@ def healthz(request):
             from yt_dlp.version import __version__ as version
         except Exception:
             version = getattr(yt_dlp, "__version__", None)
-    return JsonResponse({"status": "ok", "yt_dlp": version})
+    return JsonResponse(
+        {"status": "ok", "version": __version__, "yt_dlp": version}
+    )
