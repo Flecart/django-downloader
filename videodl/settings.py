@@ -66,7 +66,13 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles_build"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Serve static files via Django's finders at runtime so no `collectstatic`
+# build step is required. Vercel has no Django build phase, and WhiteNoise in
+# finders mode reads straight from each app's static/ directory (which is
+# bundled with the function). For a high-traffic host, run collectstatic and
+# drop these two lines to use the compressed/manifest storage instead.
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

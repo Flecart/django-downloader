@@ -47,10 +47,12 @@ Open http://127.0.0.1:8000.
 3. Set environment variables in the Vercel project settings:
    - `DJANGO_SECRET_KEY` — a long random string.
    - `DJANGO_DEBUG` — leave unset / `False` in production.
-4. Deploy. Vercel runs `build_files.sh` (collectstatic) and serves the WSGI app
-   from `api/index.py`.
+4. Deploy. Vercel auto-detects the Python function at `api/index.py`, installs
+   `requirements.txt`, and routes all traffic to the WSGI app (see
+   `vercel.json`).
 
-Static files are served by WhiteNoise.
+Static files are served by WhiteNoise in finders mode, so no `collectstatic`
+build step is needed.
 
 ## Configuration
 
