@@ -8,6 +8,9 @@ dependencies = [
     "Django>=5.0,<5.2",
     "yt-dlp>=2024.0.0",
     "whitenoise>=6.6.0",
+    # Required for yt-dlp browser impersonation (Dailymotion and other sites
+    # now demand a real browser TLS fingerprint to avoid being blocked).
+    "curl_cffi>=0.7",
 ]
 
 [tool.uv]

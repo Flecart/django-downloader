@@ -2,8 +2,24 @@
 #    uv export --no-hashes --no-dev --no-emit-project -o requirements.txt
 asgiref==3.11.1
     # via django
+certifi==2026.6.17
+    # via curl-cffi
+cffi==2.0.0
+    # via curl-cffi
+curl-cffi==0.15.0
+    # via django-video-downloader
 django==5.1.15
     # via django-video-downloader
+markdown-it-py==4.2.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
+pycparser==3.0 ; implementation_name != 'PyPy'
+    # via cffi
+pygments==2.20.0
+    # via rich
+rich==15.0.0
+    # via curl-cffi
 sqlparse==0.5.5
     # via django
 tzdata==2026.2 ; sys_platform == 'win32'
